@@ -1089,6 +1089,7 @@ static void package_player_info(struct player *plr,
   enum plr_info_level info_level;
   enum plr_info_level highest_team_level;
   struct government *pgov = NULL;
+  struct research *presearch;
 
   if (receiver) {
     info_level = player_info_level(plr, receiver);
@@ -1156,6 +1157,8 @@ static void package_player_info(struct player *plr,
     packet->score = 0;
   }
 
+  packet->net_income = player_get_expected_income(plr);
+
   if (info_level >= INFO_MEETING) {
     packet->gold = plr->economic.gold;
     pgov = government_of_player(plr);
@@ -1190,6 +1193,13 @@ static void package_player_info(struct player *plr,
     if (receiver && gives_shared_vision(plr, receiver)) {
       BV_SET(packet->gives_shared_vision, player_index(receiver));
     }
+  }
+
+  presearch = research_get(plr);
+  if (presearch->researching != A_UNSET) {
+    packet->current_research_cost = research_total_bulbs_required(presearch, presearch->researching, FALSE);
+  } else {
+    packet->current_research_cost = 0;
   }
 
   /* Make absolutely sure - in case you lose your embassy! */

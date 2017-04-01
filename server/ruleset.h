@@ -17,12 +17,7 @@
 extern "C" {
 #endif /* __cplusplus */
 
-#define RULESET_CAPABILITIES_BASE "+Freeciv-ruleset-Devel-2015.January.14"
-#ifdef FREECIV_WEB
-#define RULESET_CAPABILITIES RULESET_CAPABILITIES_BASE " +web-compatible"
-#else  /* FREECIV_WEB */
-#define RULESET_CAPABILITIES RULESET_CAPABILITIES_BASE
-#endif /* FREECIV_WEB */
+#define RULESET_CAPABILITIES "+Freeciv-ruleset-Devel-2015.January.14"
 /*
  * Ruleset capabilities acceptable to this program:
  *

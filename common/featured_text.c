@@ -33,8 +33,8 @@
 
 #include "featured_text.h"
 
-#define SEQ_START '['
-#define SEQ_STOP ']'
+#define SEQ_START '<'
+#define SEQ_STOP '>'
 #define SEQ_END '/'
 
 #define MAX_LEN_STR 32
@@ -73,7 +73,7 @@ const struct ft_color ftc_any           = FT_COLOR(NULL,        NULL);
 
 const struct ft_color ftc_warning       = FT_COLOR("#FF0000",   NULL);
 const struct ft_color ftc_log           = FT_COLOR("#7F7F7F",   NULL);
-const struct ft_color ftc_server        = FT_COLOR("#8B0000",   NULL);
+const struct ft_color ftc_server        = FT_COLOR("#FFFFFF",   NULL);
 const struct ft_color ftc_client        = FT_COLOR("#EF7F00",   NULL);
 const struct ft_color ftc_editor        = FT_COLOR("#0000FF",   NULL);
 const struct ft_color ftc_command       = FT_COLOR("#006400",   NULL);
@@ -82,7 +82,7 @@ const struct ft_color ftc_server_prompt = FT_COLOR("#FF0000",   "#BEBEBE");
 const struct ft_color ftc_player_lost   = FT_COLOR("#FFFFFF",   "#000000");
 const struct ft_color ftc_game_start    = FT_COLOR("#00FF00",   "#115511");
 
-const struct ft_color ftc_chat_public   = FT_COLOR("#00008B",   NULL);
+const struct ft_color ftc_chat_public   = FT_COLOR("#FFFFFF",   NULL);
 const struct ft_color ftc_chat_ally     = FT_COLOR("#551166",   NULL);
 const struct ft_color ftc_chat_private  = FT_COLOR("#A020F0",   NULL);
 const struct ft_color ftc_chat_luaconsole = FT_COLOR("#006400", NULL);
@@ -141,7 +141,7 @@ static const char *text_tag_type_short_name(enum text_tag_type type)
   case TTT_UNDERLINE:
     return "u";
   case TTT_COLOR:
-    return "c";
+    return "font";
   case TTT_LINK:
     return "l";
   };
@@ -238,7 +238,7 @@ static bool text_tag_init_from_sequence(struct text_tag *ptag,
     {
       if (!find_option(sequence, "foreground", ptag->color.foreground,
                        sizeof(ptag->color.foreground))
-          && !find_option(sequence, "fg", ptag->color.foreground,
+          && !find_option(sequence, "color", ptag->color.foreground,
                           sizeof(ptag->color.foreground))) {
         ptag->color.foreground[0] = '\0';
       }
@@ -482,7 +482,7 @@ static size_t text_tag_start_sequence(const struct text_tag *ptag,
                                text_tag_type_short_name(ptag->type));
 
       if (ptag->color.foreground[0] != '\0') {
-        ret += fc_snprintf(buf + ret, len - ret, " fg=\"%s\"",
+        ret += fc_snprintf(buf + ret, len - ret, " color=\"%s\"",
                            ptag->color.foreground);
       }
       if (ptag->color.background[0] != '\0') {
@@ -1063,10 +1063,9 @@ const char *city_link(const struct city *pcity)
 {
   static char buf[MAX_LEN_LINK];
 
-  fc_snprintf(buf, sizeof(buf), "%c%s tgt=\"%s\" id=%d name=\"%s\" %c%c",
-              SEQ_START, text_tag_type_short_name(TTT_LINK),
-              text_link_type_name(TLT_CITY), pcity->id,
-              city_name_get(pcity), SEQ_END, SEQ_STOP);
+  fc_snprintf(buf, sizeof(buf), "<a href=\"#\" onclick=\"show_city_dialog_by_id(%d);\">%s</a>",
+              pcity->id,
+              city_name_get(pcity));
   return buf;
 }
 
@@ -1113,10 +1112,8 @@ const char *unit_link(const struct unit *punit)
 {
   static char buf[MAX_LEN_LINK];
 
-  fc_snprintf(buf, sizeof(buf), "%c%s tgt=\"%s\" id=%d name=\"%s\" %c%c",
-              SEQ_START, text_tag_type_short_name(TTT_LINK),
-              text_link_type_name(TLT_UNIT), punit->id,
-              unit_name_translation(punit), SEQ_END, SEQ_STOP);
+  fc_snprintf(buf, sizeof(buf), "%s", unit_name_translation(punit));
+
   return buf;
 }
 

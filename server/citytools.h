@@ -53,7 +53,6 @@ void send_city_info_at_tile(struct player *pviewer, struct conn_list *dest,
 void send_all_known_cities(struct conn_list *dest);
 void send_player_cities(struct player *pplayer);
 void package_city(struct city *pcity, struct packet_city_info *packet,
-                  struct packet_web_city_info_addition *web_packet,
                   struct traderoute_packet_list *routes,
 		  bool dipl_invest);
 

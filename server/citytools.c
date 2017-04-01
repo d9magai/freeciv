@@ -2120,19 +2120,17 @@ void refresh_dumb_city(struct city *pcity)
 static void broadcast_city_info(struct city *pcity)
 {
   struct packet_city_info packet;
-  struct packet_web_city_info_addition web_packet;
   struct packet_city_short_info sc_pack;
   struct player *powner = city_owner(pcity);
   struct traderoute_packet_list *routes = traderoute_packet_list_new();
 
   /* Send to everyone who can see the city. */
-  package_city(pcity, &packet, &web_packet, routes, FALSE);
+  package_city(pcity, &packet, routes, FALSE);
   players_iterate(pplayer) {
     if (can_player_see_city_internals(pplayer, pcity)) {
       if (!send_city_suppressed || pplayer != powner) {
         update_dumb_city(powner, pcity);
         lsend_packet_city_info(powner->connections, &packet, FALSE);
-        web_lsend_packet(city_info_addition, powner->connections, &web_packet, FALSE);
         traderoute_packet_list_iterate(routes, route_packet) {
           lsend_packet_traderoute_info(powner->connections, route_packet);
         } traderoute_packet_list_iterate_end;
@@ -2152,7 +2150,6 @@ static void broadcast_city_info(struct city *pcity)
   conn_list_iterate(game.est_connections, pconn) {
     if (conn_is_global_observer(pconn)) {
       send_packet_city_info(pconn, &packet, FALSE);
-      web_send_packet(city_info_addition, pconn, &web_packet, FALSE);
     }
   } conn_list_iterate_end;
 
@@ -2263,7 +2260,6 @@ void send_city_info_at_tile(struct player *pviewer, struct conn_list *dest,
 			    struct city *pcity, struct tile *ptile)
 {
   struct packet_city_info packet;
-  struct packet_web_city_info_addition web_packet;
   struct packet_city_short_info sc_pack;
   struct player *powner = NULL;
   struct traderoute_packet_list *routes = NULL;
@@ -2282,9 +2278,8 @@ void send_city_info_at_tile(struct player *pviewer, struct conn_list *dest,
 
       /* send all info to the owner */
       update_dumb_city(powner, pcity);
-      package_city(pcity, &packet, &web_packet, routes, FALSE);
+      package_city(pcity, &packet, routes, FALSE);
       lsend_packet_city_info(dest, &packet, FALSE);
-      web_lsend_packet(city_info_addition, dest, &web_packet, FALSE);
       traderoute_packet_list_iterate(routes, route_packet) {
         lsend_packet_traderoute_info(dest, route_packet);
       } traderoute_packet_list_iterate_end;
@@ -2306,9 +2301,8 @@ void send_city_info_at_tile(struct player *pviewer, struct conn_list *dest,
       if (pcity) {
         routes = traderoute_packet_list_new();
 
-	package_city(pcity, &packet, &web_packet, routes, FALSE);   /* should be dumb_city info? */
+	package_city(pcity, &packet, routes, FALSE);   /* should be dumb_city info? */
         lsend_packet_city_info(dest, &packet, FALSE);
-        web_lsend_packet(city_info_addition, dest, &web_packet, FALSE);
         traderoute_packet_list_iterate(routes, route_packet) {
           lsend_packet_traderoute_info(dest, route_packet);
         } traderoute_packet_list_iterate_end;
@@ -2345,12 +2339,18 @@ void send_city_info_at_tile(struct player *pviewer, struct conn_list *dest,
   Fill city info packet with information about given city.
 **************************************************************************/
 void package_city(struct city *pcity, struct packet_city_info *packet,
-                  struct packet_web_city_info_addition *web_packet,
                   struct traderoute_packet_list *routes,
 		  bool dipl_invest)
 {
   int i;
   int ppl = 0;
+  char can_build_impr_buf[MAX_NUM_ITEMS + 1];
+  char can_build_unit_buf[MAX_NUM_ITEMS + 1];
+  char food_output_buf[MAX_NUM_ITEMS + 1];
+  char shield_output_buf[MAX_NUM_ITEMS + 1];
+  char trade_output_buf[MAX_NUM_ITEMS + 1];
+  struct tile *pcenter = city_tile(pcity);
+  int c = 0;
 
   packet->id = pcity->id;
   packet->owner = player_number(city_owner(pcity));
@@ -2429,7 +2429,7 @@ void package_city(struct city *pcity, struct packet_city_info *packet,
 
       /* And repackage */
       recursion = TRUE;
-      package_city(pcity, packet, web_packet, routes, dipl_invest);
+      package_city(pcity, packet, routes, dipl_invest);
       recursion = FALSE;
 
       return;
@@ -2469,6 +2469,9 @@ void package_city(struct city *pcity, struct packet_city_info *packet,
   packet->shield_stock = pcity->shield_stock;
   packet->pollution = pcity->pollution;
   packet->illness_trade = pcity->illness_trade;
+  packet->granary_size = city_granary_size(city_size_get(pcity));
+  packet->granary_turns = city_turns_to_grow(pcity);
+  packet->buy_gold_cost = city_production_buy_gold_cost(pcity);
   packet->city_options = pcity->city_options;
 
   packet->production_kind = pcity->production.kind;
@@ -2492,10 +2495,28 @@ void package_city(struct city *pcity, struct packet_city_info *packet,
   packet->did_buy = pcity->did_buy;
   packet->did_sell = pcity->did_sell;
   packet->was_happy = pcity->was_happy;
+  packet->unhappy = city_unhappy(pcity);
 
   packet->walls = city_got_citywalls(pcity);
   packet->style = pcity->style;
   packet->city_image = get_city_bonus(pcity, EFT_CITY_IMAGE);
+
+  improvement_iterate(pimprove) {
+    can_build_impr_buf[improvement_index(pimprove)] = 
+	    can_city_build_improvement_now(pcity, pimprove)
+      ? '1' : '0';
+  } improvement_iterate_end;
+  can_build_impr_buf[improvement_count()] = '\0';
+  sz_strlcpy(packet->can_build_improvement, can_build_impr_buf);
+
+  unit_type_iterate(punittype) {
+    can_build_unit_buf[utype_index(punittype)] = 
+	    can_city_build_unit_now(pcity, punittype)
+      ? '1' : '0';
+  } unit_type_iterate_end;
+  can_build_unit_buf[utype_count()] = '\0';
+  sz_strlcpy(packet->can_build_unit, can_build_unit_buf);
+
 
   BV_CLR_ALL(packet->improvements);
   improvement_iterate(pimprove) {
@@ -2504,11 +2525,27 @@ void package_city(struct city *pcity, struct packet_city_info *packet,
     }
   } improvement_iterate_end;
 
-#ifdef FREECIV_WEB
-  web_packet->granary_size = city_granary_size(city_size_get(pcity));
-  web_packet->granary_turns = city_turns_to_grow(pcity);
-  web_packet->buy_gold_cost = city_production_buy_gold_cost(pcity);
-#endif /* FREECIV_WEB */
+  city_tile_iterate(city_map_radius_sq_get(pcity), pcenter, ptile) {
+    char f[2];
+    char s[2];
+    char t[2];
+
+    fc_snprintf(f, sizeof(f), "%d", city_tile_output_now(pcity, ptile, O_FOOD));
+    fc_snprintf(s, sizeof(s), "%d", city_tile_output_now(pcity, ptile, O_SHIELD));
+    fc_snprintf(t, sizeof(t), "%d", city_tile_output_now(pcity, ptile, O_TRADE));
+    food_output_buf[c] = f[0];
+    shield_output_buf[c] = s[0];
+    trade_output_buf[c] = t[0];
+
+    c += 1;
+
+  } city_tile_iterate_end;
+  food_output_buf[c] = '\0';
+  shield_output_buf[c] = '\0';
+  trade_output_buf[c] = '\0';
+  sz_strlcpy(packet->food_output, food_output_buf);
+  sz_strlcpy(packet->shield_output, shield_output_buf);
+  sz_strlcpy(packet->trade_output, trade_output_buf);
 }
 
 /**************************************************************************

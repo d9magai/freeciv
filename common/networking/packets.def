@@ -313,7 +313,7 @@ type UNIT_TYPE          = uint8(Unit_type_id)
 type GOODS              = uint8(Goods_type_id)
 
 # other typedefs
-type CITY_COORD         = UINT8
+type CITY_COORD         = UINT32
 type GOLD               = UINT32
 type HP                 = UINT8
 type PERCENT            = UINT8
@@ -672,6 +672,9 @@ PACKET_CITY_INFO = 31; sc, lsend, is-game-info, force, cancel(PACKET_CITY_SHORT_
   SINT16 citizen_base[O_LAST];
   SINT16 usage[O_LAST];
   UINT16 food_stock, shield_stock;
+  UINT16 granary_size;
+  TURN granary_turns;
+  UINT16 buy_gold_cost;
 
   UINT8 traderoute_count;
 
@@ -699,9 +702,16 @@ PACKET_CITY_INFO = 31; sc, lsend, is-game-info, force, cancel(PACKET_CITY_SHORT_
 
   WORKLIST worklist;
 
+  STRING can_build_unit[MAX_LEN_MSG];
+  STRING can_build_improvement[MAX_LEN_MSG];
   BV_IMPRS improvements;
+
+  STRING food_output[MAX_LEN_MSG];
+  STRING shield_output[MAX_LEN_MSG];
+  STRING trade_output[MAX_LEN_MSG];
   BV_CITY_OPTIONS city_options;
   ESTRING name[MAX_LEN_CITYNAME];
+  BOOL unhappy;
 end
 
 PACKET_CITY_SHORT_INFO = 32; sc, lsend, is-game-info, cancel(PACKET_CITY_INFO)
@@ -853,6 +863,7 @@ PACKET_PLAYER_INFO = 51; sc, is-info
   BV_PLAYER gives_shared_vision;
   UINT16 culture;
   SINT16 love[MAX_NUM_PLAYER_SLOTS];
+  UINT32 current_research_cost;
 
   BOOL color_valid;
   BOOL color_changeable;
@@ -863,6 +874,7 @@ PACKET_PLAYER_INFO = 51; sc, is-info
   BV_PLR_FLAGS flags;
 
   CITYSPE wonders[B_LAST]; diff
+  UINT32  net_income;
 
   UINT8  multip_count;
   SINT32 multiplier[MAX_NUM_MULTIPLIERS:multip_count];
@@ -1370,8 +1382,9 @@ end
 PACKET_RULESET_GAME = 141; sc, lsend
   UINT8 default_specialist;
 
-  TECH_LIST global_init_techs[MAX_NUM_TECH_LIST];
-  BUILDING_LIST global_init_buildings[MAX_NUM_BUILDING_LIST];
+  # These are removed from freeciv-web
+  # TECH_LIST global_init_techs[MAX_NUM_TECH_LIST];
+  # BUILDING_LIST global_init_buildings[MAX_NUM_BUILDING_LIST];
 
   UINT8 veteran_levels;
   STRING veteran_name[MAX_VET_LEVELS:veteran_levels][MAX_LEN_NAME];
@@ -1508,9 +1521,9 @@ PACKET_RULESET_NATION = 148; sc, lsend
   UINT8 groups[MAX_NUM_NATION_GROUPS:ngroups];
 
   GOVERNMENT init_government_id;
-  TECH_LIST init_techs[MAX_NUM_TECH_LIST];
-  UNIT_LIST init_units[MAX_NUM_UNIT_LIST];
-  BUILDING_LIST init_buildings[MAX_NUM_BUILDING_LIST];
+  # TECH_LIST init_techs[MAX_NUM_TECH_LIST];
+  # UNIT_LIST init_units[MAX_NUM_UNIT_LIST];
+  # BUILDING_LIST init_buildings[MAX_NUM_BUILDING_LIST];
 end
 
 # Separate from PACKET_RULESET_NATION since it can change in pregame
@@ -2222,8 +2235,26 @@ end
 /*************** Webclient specific packets ****************/
 /* Use range 256:511 for these                             */
 
-PACKET_WEB_CITY_INFO_ADDITION = 256; sc, lsend, is-game-info, force, cancel(PACKET_CITY_SHORT_INFO)
-  UINT16 granary_size;
-  TURN granary_turns;
-  UINT16 buy_gold_cost;
+# used for showing GOTO path in web client.
+PACKET_GOTO_PATH_REQ = 256; cs, dsend
+  UNIT unit_id;
+  TILE goal;
+end
+
+PACKET_GOTO_PATH = 257; sc, dsend
+  UNIT unit_id;
+  UINT16 length;
+  DIRECTION dir[MAX_LEN_ROUTE:length];
+  TILE dest;
+  UINT32 turns;
+end
+
+PACKET_INFO_TEXT_REQ = 258; cs, dsend
+  TILE loc;
+  UNIT visible_unit;
+  UNIT focus_unit;
+end
+
+PACKET_INFO_TEXT_MESSAGE = 259; sc, dsend
+  STRING message[MAX_LEN_MSG];
 end

@@ -130,9 +130,7 @@ void handle_city_make_specialist(struct player *pplayer, int city_id,
                                  int worker_x, int worker_y)
 {
   struct tile *ptile;
-  struct tile *pcenter;
   struct city *pcity = player_city_by_number(pplayer, city_id);
-  int city_radius_sq;
 
   if (NULL == pcity) {
     /* Probably lost. */
@@ -141,16 +139,7 @@ void handle_city_make_specialist(struct player *pplayer, int city_id,
     return;
   }
 
-  city_radius_sq = city_map_radius_sq_get(pcity);
-  if (!is_valid_city_coords(city_radius_sq, worker_x, worker_y)) {
-    log_error("handle_city_make_specialist() invalid city map {%d,%d} "
-              "\"%s\".", worker_x, worker_y, city_name_get(pcity));
-    return;
-  }
-  pcenter = city_tile(pcity);
-
-  if (NULL == (ptile = city_map_to_tile(pcenter, city_radius_sq, worker_x,
-                                        worker_y))) {
+  if (NULL == (ptile = map_pos_to_tile(worker_x, worker_y))) {
     log_error("handle_city_make_specialist() unavailable city map {%d,%d} "
               "\"%s\".", worker_x, worker_y, city_name_get(pcity));
     return;
@@ -180,9 +169,7 @@ void handle_city_make_worker(struct player *pplayer, int city_id,
 			     int worker_x, int worker_y)
 {
   struct tile *ptile;
-  struct tile *pcenter;
   struct city *pcity = player_city_by_number(pplayer, city_id);
-  int city_radius_sq = city_map_radius_sq_get(pcity);
 
   if (NULL == pcity) {
     /* Probably lost. */
@@ -190,15 +177,7 @@ void handle_city_make_worker(struct player *pplayer, int city_id,
     return;
   }
 
-  if (!is_valid_city_coords(city_radius_sq, worker_x, worker_y)) {
-    log_error("handle_city_make_worker() invalid city map {%d,%d} "
-              "\"%s\".", worker_x, worker_y, city_name_get(pcity));
-    return;
-  }
-  pcenter = city_tile(pcity);
-
-  if (NULL == (ptile = city_map_to_tile(pcenter, city_radius_sq, worker_x,
-                                        worker_y))) {
+  if (NULL == (ptile = map_pos_to_tile(worker_x, worker_y))) {
     log_error("handle_city_make_worker() unavailable city map {%d,%d} "
               "\"%s\".", worker_x, worker_y, city_name_get(pcity));
     return;

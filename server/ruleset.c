@@ -7656,6 +7656,8 @@ static void send_ruleset_nations(struct conn_list *dest)
 
     packet.init_government_id = n->init_government
       ? government_number(n->init_government) : government_count();
+
+#if 0
     fc_assert(ARRAY_SIZE(packet.init_techs) == ARRAY_SIZE(n->init_techs));
     for (i = 0; i < MAX_NUM_TECH_LIST; i++) {
       packet.init_techs[i] = n->init_techs[i];
@@ -7671,6 +7673,7 @@ static void send_ruleset_nations(struct conn_list *dest)
       /* Impr_type_id to int */
       packet.init_buildings[i] = n->init_buildings[i];
     }
+#endif
 
     lsend_packet_ruleset_nation(dest, &packet);
   } nations_iterate_end;
@@ -7795,6 +7798,8 @@ static void send_ruleset_game(struct conn_list *dest)
     misc_p.move_bonus[i] = vlevel->move_bonus;
   }
 
+  /* FIXME: removed for webclient. */
+#if 0
   fc_assert(sizeof(misc_p.global_init_techs)
             == sizeof(game.rgame.global_init_techs));
   fc_assert(ARRAY_SIZE(misc_p.global_init_techs)
@@ -7809,6 +7814,7 @@ static void send_ruleset_game(struct conn_list *dest)
     misc_p.global_init_buildings[i] =
       game.rgame.global_init_buildings[i];
   }
+#endif
 
   misc_p.default_specialist = DEFAULT_SPECIALIST;
 

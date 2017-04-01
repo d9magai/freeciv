@@ -70,6 +70,8 @@
 /* server/scripting */
 #include "script_server.h"
 
+#include "pf_tools.h"
+
 #include "unithand.h"
 
 /* An explanation why an action isn't enabled. */
@@ -1288,7 +1290,7 @@ static void explain_why_no_action_enabled(struct unit *punit,
   case ANEK_NO_WAR:
     notify_player(pplayer, unit_tile(punit), E_BAD_COMMAND, ftc_server,
                   _("You must declare war on %s first.  Try using "
-                    "the Nations report (F3)."),
+                    "the Nations report."),
                   player_name(explnat->no_war_with));
     break;
   case ANEK_DOMESTIC:
@@ -2957,6 +2959,107 @@ static bool city_build(struct player *pplayer, struct unit *punit,
                                 ptile, tile_link(ptile));
 
   return TRUE;
+}
+
+/**************************************************************************
+  This function handles GOTO path requests from the client.
+**************************************************************************/
+void handle_goto_path_req(struct player *pplayer, int unit_id, int goal)
+{
+  struct unit *punit = player_unit_by_number(pplayer, unit_id);
+  struct tile *ptile = index_to_tile(goal);
+  struct pf_parameter parameter;
+  struct pf_map *pfm;
+  struct pf_path *path;
+  struct tile *old_tile;
+  int i = 0;
+  struct packet_goto_path p;
+
+  if (NULL == punit) {
+    /* Shouldn't happen */
+    log_error("handle_unit_move()"
+              " invalid unit %d",
+              unit_id);
+    return;
+  }
+
+  if (NULL == ptile) {
+    /* Shouldn't happen */
+    log_error("handle_unit_move()"
+              " invalid %s (%d) tile (%d,%d)",
+              unit_rule_name(punit),
+              unit_id,
+              TILE_XY(ptile));
+    return;
+  }
+
+  if (!is_player_phase(unit_owner(punit), game.info.phase)) {
+    /* Client is out of sync, ignore */
+    log_verbose("handle_unit_move()"
+                " invalid %s (%d) %s != phase %d",
+                unit_rule_name(punit),
+                unit_id,
+                nation_rule_name(nation_of_unit(punit)),
+                game.info.phase);
+    return;
+  }
+
+  p.unit_id = punit->id;
+  p.dest = tile_index(ptile);
+
+  /* Use path-finding to find a goto path. */
+  pft_fill_unit_parameter(&parameter, punit);
+  pfm = pf_map_new(&parameter);
+  path = pf_map_path(pfm, ptile);
+  pf_map_destroy(pfm);
+
+  if (path) {
+    int total_mc = 0;
+
+    p.length = path->length - 1;
+
+    old_tile = path->positions[0].tile;
+
+    /* Remove city spot reservations for AI settlers on city founding
+     * mission, before goto_tile reset. */
+    if (punit->server.adv->task != AUT_NONE) {
+      adv_unit_new_task(punit, AUT_NONE, NULL);
+    }
+
+    punit->ai_controlled = FALSE;
+    punit->goto_tile = NULL;
+
+    free_unit_orders(punit);
+    /* If we waited on a tile, reset punit->done_moving */
+    punit->done_moving = (punit->moves_left <= 0);
+    punit->has_orders = TRUE;
+    punit->orders.length = path->length - 1;
+    punit->orders.index = 0;
+    punit->orders.repeat = FALSE;
+    punit->orders.vigilant = FALSE;
+    punit->orders.list
+      = fc_malloc(path->length * sizeof(*(punit->orders.list)));
+    for (i = 0; i < path->length - 1; i++) {
+      struct tile *new_tile = path->positions[i + 1].tile;
+      int dir;
+
+      total_mc += path->positions[1].total_MC;
+      if (same_pos(new_tile, old_tile)) {
+        dir = -1;
+      } else {
+        dir = get_direction_for_step(old_tile, new_tile);
+      }
+      old_tile = new_tile;
+      p.dir[i] = dir;
+
+    }
+    pf_path_destroy(path);
+    p.turns = total_mc / unit_move_rate(punit);
+    send_packet_goto_path(pplayer->current_conn, &p);
+
+  } else {
+    return;
+  }
 }
 
 /**************************************************************************
